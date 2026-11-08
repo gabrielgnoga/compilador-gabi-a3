@@ -1,0 +1,18 @@
+# Pastas de compilação e IDE
+target/
+out/
+.idea/
+*.iml
+
+src/main/java/org/example/GabiLexer.*
+src/main/java/org/example/GabiParser.*
+src/main/java/org/example/GabiVisitor.*
+src/main/java/org/example/GabiBaseVisitor.*
+src/main/java/org/example/*.tokens
+src/main/java/org/example/*.interp
+
+# Artefatos de saída temporários
+saida.tac
+saida.c
+*.exe
+*.o

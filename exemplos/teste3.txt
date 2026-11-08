@@ -1,0 +1,3 @@
+// Teste 3: Demonstração de Erro Léxico (caractere '@' não pertence ao alfabeto)
+int valor = 10 @ 5;
+print valor;

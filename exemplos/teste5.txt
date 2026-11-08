@@ -1,0 +1,16 @@
+// Teste 5: Demonstração dos 3 Erros Semânticos (Tipos, Escopo e Declaração)
+int numero = 10;
+texto nome = "Gabi";
+
+// 1. Erro de incompatibilidade de tipos (int + texto)
+int erroTipo = numero + nome;
+
+// 2. Erro de variável não declarada ('naoExiste')
+numero = naoExiste + 1;
+
+if (numero > 0) {
+    int secretaDoBloco = 99;
+}
+
+// 3. Erro de escopo ('secretaDoBloco' não existe fora do bloco if)
+print secretaDoBloco;

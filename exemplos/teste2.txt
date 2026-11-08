@@ -1,0 +1,13 @@
+// Teste 2: Expressões com parênteses, concatenação de texto e escopo aninhado
+int base = (3 + 4) * 2;
+texto curso = "Compiladores ";
+texto status = "Aprovado";
+
+if (base == 14) {
+    int bonus = 6;
+    base = base + bonus;
+    texto msgFinal = curso + status;
+    print msgFinal;
+}
+
+print base;

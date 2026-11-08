@@ -1,0 +1,4 @@
+// Teste 4: Demonstração de Erro Sintático (ausência de ponto e vírgula)
+int a = 10
+int b = 20;
+print b;

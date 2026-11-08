@@ -1,0 +1,16 @@
+// Teste 1: Exemplo oficial da Aula 27 (Precedência 3+4*2=11, if/else e while)
+int x = 3 + 4 * 2;
+print x;
+
+if (x > 5) {
+    int y = x - 1;
+    print y;
+} else {
+    print 0;
+}
+
+while (x > 0) {
+    print x;
+    x = x - 1;
+}
+print x;

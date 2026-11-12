@@ -3,6 +3,8 @@ package org.example;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.ParseTree;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -10,7 +12,6 @@ import java.util.List;
 
 public class Main {
 
-    // Listener com indicador visual ^~~~ da linha e coluna exata do erro (Aula 24)
     public static class GabiErrorListener extends BaseErrorListener {
         private final String fase;
         private final List<String> listaErros;
@@ -36,11 +37,11 @@ public class Main {
         }
     }
 
-    public static void compilarEExecutar(String titulo, String codigoFonte, boolean salvarArquivos) {
+    public static void compilarPrograma(String titulo, String codigoFonte, boolean gerarArquivosFisicos) {
         System.out.println("======================================================================");
-        System.out.println("▶ " + titulo);
+        System.out.println("▶ COMPILANDO: " + titulo);
         System.out.println("======================================================================");
-        System.out.println("--- [Código-Fonte] ---");
+        System.out.println("--- [Código-Fonte (.gabi)] ---");
         System.out.println(codigoFonte.trim());
 
         List<String> errosLexicosSintaticos = new ArrayList<>();
@@ -75,64 +76,93 @@ public class Main {
         System.out.println("  " + tree.toStringTree(parser));
 
         if (!errosLexicosSintaticos.isEmpty()) {
-            System.out.println("\n--- [5. Diagnóstico de Erros Léxicos/Sintáticos] ---");
+            System.out.println("\n--- [5. Diagnóstico de Erros Léxicos/Sintáticos (Compilação Abortada)] ---");
             errosLexicosSintaticos.forEach(System.out::println);
             System.out.println();
             return;
         }
 
-        // 3, 4 e 5. Semântica + Otimização (Constant Folding) + TAC + Geração C + Interpretação
-        GabiCompilerVisitor visitor = new GabiCompilerVisitor(codigoFonte);
-        visitor.visit(tree);
+        // 3 e 4. Fase Semântica + Otimização (Constant Folding) + Geração de TAC e Código C
+        GabiCompilerVisitor compiler = new GabiCompilerVisitor(codigoFonte);
+        compiler.visit(tree);
 
-        if (!visitor.getErrosSemanticos().isEmpty()) {
-            System.out.println("\n--- [3 & 5. Diagnóstico de Erros Semânticos] ---");
-            visitor.getErrosSemanticos().forEach(System.out::println);
+        if (!compiler.getErrosSemanticos().isEmpty()) {
+            System.out.println("\n--- [3 & 5. Diagnóstico de Erros Semânticos (Compilação Abortada)] ---");
+            compiler.getErrosSemanticos().forEach(System.out::println);
             System.out.println();
             return;
         }
 
-        System.out.println("\n--- [3. Fase Semântica: Tabela de Símbolos Completa (Global + Locais)] ---");
-        for (GabiCompilerVisitor.Simbolo s : visitor.getHistoricoSimbolos()) {
+        System.out.println("\n--- [3. Fase Semântica: Tabela de Símbolos (Global + Escopos Locais)] ---");
+        for (GabiCompilerVisitor.Simbolo s : compiler.getHistoricoSimbolos()) {
             String escopoStr = (s.escopoNivel == 0) ? "Global (0)" : "Bloco Local (" + s.escopoNivel + ")";
-            System.out.printf("  Nome: %-10s | Tipo: %-6s | Escopo: %-15s | Valor Final: %-18s | Linha: %d%n",
-                    s.nome, s.tipo, escopoStr, s.valor, s.linhaDecl);
+            System.out.printf("  Nome: %-10s | Tipo: %-6s | Escopo: %-15s | Expr Compilada: %-18s | Leituras: %d | Linha: %d%n",
+                    s.nome, s.tipo, escopoStr, s.exprInicial, s.leituras, s.linhaDecl);
         }
 
-        if (!visitor.getLogOtimizacoes().isEmpty()) {
-            System.out.println("\n--- [4A. Otimizador de Código (Constant Folding — Aula 25)] ---");
-            visitor.getLogOtimizacoes().forEach(opt -> System.out.println("  " + opt));
+        if (!compiler.getLogOtimizacoes().isEmpty()) {
+            System.out.println("\n--- [4A. Otimizador em Tempo de Compilação (Constant Folding & Dead Code)] ---");
+            compiler.getLogOtimizacoes().forEach(opt -> System.out.println("  " + opt));
         }
 
-        System.out.println("\n--- [4B. Código Intermediário de Três Endereços (TAC — Aula 25)] ---");
-        visitor.getCodigoTAC().forEach(System.out::println);
+        System.out.println("\n--- [4B. Código Intermediário de Três Endereços (TAC)] ---");
+        compiler.getCodigoTAC().forEach(System.out::println);
 
-        System.out.println("\n--- [4C. Resultado da Interpretação Direta] ---");
-        for (String out : visitor.getSaidasPrint()) {
-            System.out.println("  > " + out);
-        }
+        System.out.println("\n--- [4C. Código-Objeto Alvo Gerado em C (saida.c)] ---");
+        System.out.println(compiler.getCodigoC());
 
-        System.out.println("\n--- [4D. Código-Alvo Otimizado em C] ---");
-        System.out.println(visitor.getCodigoC());
-
-        if (salvarArquivos) {
+        if (gerarArquivosFisicos) {
             try {
-                Files.writeString(Path.of("saida.tac"), String.join("\n", visitor.getCodigoTAC()) + "\n");
-                Files.writeString(Path.of("saida.c"), visitor.getCodigoC());
-                System.out.println("💾 Artefatos gerados com sucesso na raiz: 'saida.tac' e 'saida.c'!");
-            } catch (Exception ignored) {}
+                Files.writeString(Path.of("saida.tac"), String.join("\n", compiler.getCodigoTAC()) + "\n");
+                Files.writeString(Path.of("saida.c"), compiler.getCodigoC());
+                System.out.println("💾 Artefatos de compilação gerados: 'saida.tac' e 'saida.c'");
+
+                compilarComGccSeDisponivel();
+            } catch (Exception e) {
+                System.out.println("Erro ao gravar artefatos: " + e.getMessage());
+            }
         }
         System.out.println();
+    }
+
+    private static void compilarComGccSeDisponivel() {
+        boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+        String binName = isWindows ? "programa.exe" : "./programa";
+
+        try {
+            ProcessBuilder pbGcc = new ProcessBuilder("gcc", "saida.c", "-o", isWindows ? "programa.exe" : "programa");
+            pbGcc.redirectErrorStream(true);
+            Process procGcc = pbGcc.start();
+            int exitGcc = procGcc.waitFor();
+
+            if (exitGcc == 0) {
+                System.out.println("⚙️ [Back-End Nativo] 'gcc saida.c -o " + binName + "' compilado com sucesso!");
+                System.out.println("--- [Execução do Binário Nativo Compilado (" + binName + ")] ---");
+                ProcessBuilder pbRun = new ProcessBuilder(binName);
+                pbRun.redirectErrorStream(true);
+                Process procRun = pbRun.start();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(procRun.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("  > " + line);
+                    }
+                }
+                procRun.waitFor();
+            }
+        } catch (Exception ignored) {
+            // Se o PC não tiver gcc no PATH, apenas mantém o saida.c pronto para compilar manualmente
+            System.out.println("ℹ️ Para gerar e rodar o binário nativo manualmente com GCC: gcc saida.c -o programa && ./programa");
+        }
     }
 
     public static void main(String[] args) throws Exception {
         if (args.length > 0) {
             String conteudo = Files.readString(Path.of(args[0]));
-            compilarEExecutar("Arquivo: " + args[0], conteudo, true);
+            compilarPrograma("Arquivo: " + args[0], conteudo, true);
             return;
         }
 
-        compilarEExecutar("TESTE 1: Pipeline Completo (Constant Folding 3+4*2=11, TAC, Escopo, If/Else, While e Do-While)", """
+        compilarPrograma("TESTE 1: Programa Válido (Constant Folding 3+4*2=11, TAC, Escopo, If/Else, While e Do-While)", """
                 // Constant Folding reduz 3 + 4 * 2 para 11 em tempo de compilação!
                 int x = 3 + 4 * 2;
                 print x;
@@ -161,17 +191,17 @@ public class Main {
                 print x;
                 """, true);
 
-        compilarEExecutar("TESTE 2: Erro Léxico (Caractere inválido '@' com apontador visual ^~~~)", """
+        compilarPrograma("TESTE 2: Erro Léxico (Caractere inválido '@' com apontador visual ^~~~)", """
                 int a = 10 @ 5;
                 print a;
                 """, false);
 
-        compilarEExecutar("TESTE 3: Erro Sintático (Falta de ponto e vírgula com apontador visual ^~~~)", """
+        compilarPrograma("TESTE 3: Erro Sintático (Falta de ponto e vírgula com apontador visual ^~~~)", """
                 int a = 10
                 print a;
                 """, false);
 
-        compilarEExecutar("TESTE 4: Erro Semântico (Variável não declarada e vazamento de escopo)", """
+        compilarPrograma("TESTE 4: Erro Semântico (Variável não declarada e vazamento de escopo)", """
                 int a = 5;
                 if (a > 0) {
                     int localBloco = 20;
@@ -180,7 +210,7 @@ public class Main {
                 print localBloco;
                 """, false);
 
-        compilarEExecutar("TESTE 5: Erro Semântico (Incompatibilidade de tipos int + texto)", """
+        compilarPrograma("TESTE 5: Erro Semântico (Incompatibilidade de tipos int + texto)", """
                 int numero = 10;
                 texto nome = "Gabi";
                 int somaInvalida = numero + nome;

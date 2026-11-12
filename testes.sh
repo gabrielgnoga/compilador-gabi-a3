@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 echo "===================================================="
-echo "   BATERIA AUTOMATIZADA DE TESTES — LINGUAGEM GABI  "
+echo "   1. COMPILANDO O PROJETO (ANTLR4 + JAVAC + JAR)   "
 echo "===================================================="
+mvn clean package -DskipTests
 
+echo ""
+echo "===================================================="
+echo "   2. EXECUTANDO BATERIA DE TESTES (PASTA EXEMPLOS) "
+echo "===================================================="
 for t in exemplos/*.txt; do
     echo ""
-    echo ">>> Executando caso de teste: $t <<<"
-    java -cp "target/classes;C:/Users/Gabriel/.m2/repository/org/antlr/antlr4-runtime/4.13.2/antlr4-runtime-4.13.2.jar" org.example.Main "$t"
+    echo ">>> Testando arquivo: $t <<<"
+    java -jar target/gabi-compiler.jar "$t"
 done

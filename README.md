@@ -3,7 +3,7 @@
 **Disciplina:** Teoria da Computação e Compiladores — Prof. Marcelo Di Paoli 
 **Integrantes do Grupo:**
 * **Gabriel Gomide Noga**
-* **Rayan Serhan de Andrade**
+* **Rayan Serhan Trindade**
 
 ---
 

@@ -1,0 +1,9 @@
+// Teste 7: Comentarios e espacos em branco
+
+int numero = 10;
+
+// Comentario entre instrucoes
+
+int dobro = numero * 2;
+
+print dobro;

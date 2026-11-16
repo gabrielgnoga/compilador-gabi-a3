@@ -1,0 +1,4 @@
+// Teste 6: Entrada e saida de dados
+int idade;
+read idade;
+print idade;

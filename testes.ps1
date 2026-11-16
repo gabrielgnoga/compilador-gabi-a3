@@ -1,14 +1,13 @@
 
 # Testes automatizados do compilador Gabi
-# Executa os exemplos e verifica os resultados esperados.
+# Verifica programas validos, erros esperados e resultados especificos.
 
 $ErrorActionPreference = "Stop"
 
-# Caminhos do projeto
 $jar = Join-Path $PSScriptRoot "target\gabi-compiler.jar"
 $pastaExemplos = Join-Path $PSScriptRoot "exemplos"
 
-# Compila o projeto se o JAR ainda nao existir
+# Compila o projeto caso o JAR nao exista
 if (-not (Test-Path $jar)) {
     Write-Host "Compilando o projeto..." -ForegroundColor Yellow
 
@@ -25,8 +24,7 @@ if (-not (Test-Path $jar)) {
     }
 }
 
-# Resultados esperados para cada arquivo
-# Strings sem acentos evitam problemas de codificacao.
+# Casos de teste e seus resultados esperados
 $casos = @(
     @{ Nome = "teste1.txt"; Tipo = "Valido" },
     @{ Nome = "teste2.txt"; Tipo = "Valido" },
@@ -55,48 +53,140 @@ foreach ($caso in $casos) {
         continue
     }
 
-    # Executa o compilador e captura a saida
+    # Executa o compilador e captura sua saida
     $saida = (& java -jar $jar $arquivo 2>&1) | Out-String
     $codigoSaida = $LASTEXITCODE
 
-    # Marcadores das mensagens geradas pelo compilador
-    $erroLexico = $saida -match "token recognition error"
-    $erroSintatico = $saida -match "missing ';'|extraneous input|mismatched input|no viable alternative"
-    $erroSemantico = $saida -match "Tipos incompat|naoExiste.*declarada|secretaDoBloco.*declarada|Erro Sem"
+    # Localiza a secao de diagnosticos.
+    # Evita confundir palavras no codigo-fonte com erros encontrados.
+    $inicioDiagnosticos = [regex]::Match(
+        $saida,
+        '(?m)^--- \[(?:5\.|3 & 5\.)'
+    )
 
-    # Programas validos geram esta secao ao finalizar
+    $diagnosticos = ""
+
+    if ($inicioDiagnosticos.Success) {
+        $diagnosticos = $saida.Substring($inicioDiagnosticos.Index)
+    }
+
+    # Verifica se houve algum diagnostico ou compilacao abortada
+    $possuiDiagnosticos = $diagnosticos -match "Erro\s+"
+    $compilacaoAbortada = $diagnosticos -match "Abortada"
+
+    # Confirma a geracao dos artefatos nos programas validos
     $compilacaoConcluida = $saida -match "saida\.tac.*saida\.c"
 
     $passou = $false
+    $motivo = ""
 
     switch ($caso.Tipo) {
 
         "Valido" {
+
             $passou = (
                 $codigoSaida -eq 0 -and
                 $compilacaoConcluida -and
-                -not $erroLexico -and
-                -not $erroSintatico -and
-                -not $erroSemantico
+                -not $possuiDiagnosticos -and
+                -not $compilacaoAbortada
             )
+
+            if (-not $passou) {
+                $motivo = "Programa valido apresentou erros ou nao concluiu a compilacao."
+            }
+
+            # Teste 1: multiplicacao antes da soma
+            if ($caso.Nome -eq "teste1.txt") {
+
+                $resultadoCorreto = $saida -match "(?m)^\s*x = 11\s*$"
+
+                if (-not $resultadoCorreto) {
+                    $passou = $false
+                    $motivo = "Esperado no TAC: x = 11"
+                }
+            }
+
+            # Teste 2: prioridade dos parenteses
+            if ($caso.Nome -eq "teste2.txt") {
+
+                $resultadoCorreto = $saida -match "(?m)^\s*base = 14\s*$"
+
+                if (-not $resultadoCorreto) {
+                    $passou = $false
+                    $motivo = "Esperado no TAC: base = 14"
+                }
+            }
         }
 
         "Lexico" {
-            $passou = $erroLexico
+
+            # Teste 3: caractere @ invalido.
+            # O erro sintatico seguinte e uma consequencia esperada.
+            $erroEsperado = $diagnosticos.Contains(
+                "token recognition error at: '@'"
+            )
+
+            $passou = (
+                $erroEsperado -and
+                $compilacaoAbortada
+            )
+
+            if (-not $passou) {
+                $motivo = "Erro lexico do caractere @ nao foi diagnosticado corretamente."
+            }
         }
 
         "Sintatico" {
-            $passou = $erroSintatico -and -not $erroLexico
+
+            # Teste 4: falta de ponto e virgula antes de int
+            $erroEsperado = $diagnosticos.Contains(
+                "missing ';' at 'int'"
+            )
+
+            $semErroLexico = -not (
+                $diagnosticos -match "token recognition error"
+            )
+
+            $passou = (
+                $erroEsperado -and
+                $semErroLexico -and
+                $compilacaoAbortada
+            )
+
+            if (-not $passou) {
+                $motivo = "Erro sintatico de ponto e virgula nao foi diagnosticado corretamente."
+            }
         }
 
         "Semantico" {
-            $passou = (
-                ($saida -match "Tipos incompat") -and
-                ($saida -match "naoExiste") -and
-                ($saida -match "secretaDoBloco") -and
-                -not $erroLexico -and
-                -not $erroSintatico
+
+            # Teste 5: diagnosticos especificos, nao apenas nomes de variaveis
+            $tipoIncompativel = $diagnosticos -match "Tipos incompat"
+
+            $variavelNaoDeclarada = $diagnosticos -match "Vari.vel 'naoExiste' n.o foi declarada"
+
+            $variavelForaEscopo = $diagnosticos -match "Vari.vel 'secretaDoBloco' n.o foi declarada"
+
+            $semErroLexico = -not (
+                $diagnosticos -match "token recognition error"
             )
+
+            $semErroSintatico = -not (
+                $diagnosticos -match "missing ';'|extraneous input|mismatched input|no viable alternative"
+            )
+
+            $passou = (
+                $tipoIncompativel -and
+                $variavelNaoDeclarada -and
+                $variavelForaEscopo -and
+                $compilacaoAbortada -and
+                $semErroLexico -and
+                $semErroSintatico
+            )
+
+            if (-not $passou) {
+                $motivo = "Os tres erros semanticos esperados nao foram diagnosticados corretamente."
+            }
         }
     }
 
@@ -106,6 +196,7 @@ foreach ($caso in $casos) {
     }
     else {
         Write-Host "FALHOU - $($caso.Nome) [$($caso.Tipo)]" -ForegroundColor Red
+        Write-Host "Motivo: $motivo" -ForegroundColor Yellow
         Write-Host "Saida do compilador:"
         Write-Host $saida
         $reprovados++

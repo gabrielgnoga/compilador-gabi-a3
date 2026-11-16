@@ -46,7 +46,7 @@ Adit   → Adit + Termo | Adit - Termo | Termo
 Termo  → Termo * Unario | Termo / Unario | Unario
 Unario → - Unario | ! Unario | Fator
 Fator  → ( Expr ) | num | str | id
-
+```
 
 ---
 

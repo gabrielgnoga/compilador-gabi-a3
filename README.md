@@ -1,9 +1,9 @@
 # Compilador — Linguagem Gabi (Avaliação A3)
 
-**Disciplina:** Teoria da Computação e Compiladores — Prof. Marcelo Di Paoli 
+**Disciplina:** Teoria da Computação e Compiladores — Prof. Marcelo Di Paoli  
 **Integrantes do Grupo:**
-* **Gabriel Gomide Noga**
-* **Rayan Serhan Trindade**
+- **Gabriel Gomide Noga**
+- **Rayan Serhan Trindade**
 
 ---
 
@@ -22,6 +22,11 @@ O projeto implementa um pipeline completo de compilação (Front-End e Back-End)
 
 ## 2. Especificação Formal da Gramática (BNF / EBNF)
 
+A linguagem **Gabi** é formalmente definida pela Gramática Livre de Contexto $G = (V, T, P, S)$, onde:
+- **$V$ (Não-Terminais):** `{ Programa, ListaInstr, Instrucao, Tipo, Expr, Rel, Adit, Termo, Unario, Fator }`
+- **$T$ (Terminais):** `{ int, texto, print, read, if, else, while, do, id, num, str, =, ;, (, ), {, }, +, -, *, /, <, >, <=, >=, ==, !=, &&, ||, !, EOF }`
+- **$S$ (Símbolo Inicial):** `Programa`
+
 ### 2.1. Estrutura do Programa e Instruções
 ```text
 Programa   → ListaInstr EOF
@@ -37,9 +42,11 @@ Instrucao  → Tipo id ;
            | do Instrucao while ( Expr ) ;
            | { ListaInstr }
            | { }
-Tipo       → int | texto 
+Tipo       → int | texto
+```
 
-
+### 2.2. Hierarquia de Expressões (Precedência e Associatividade à Esquerda)
+```text
 Expr   → Expr && Rel | Expr || Rel | Rel
 Rel    → Rel < Adit | Rel > Adit | Rel <= Adit | Rel >= Adit | Rel == Adit | Rel != Adit | Adit
 Adit   → Adit + Termo | Adit - Termo | Termo
@@ -48,9 +55,18 @@ Unario → - Unario | ! Unario | Fator
 Fator  → ( Expr ) | num | str | id
 ```
 
+### 2.3. Especificação Léxica (Expressões Regulares dos Tokens)
+```text
+id      → [a-zA-Z_][a-zA-Z0-9_]*
+num     → [0-9]+
+str     → '"' (~["\r\n])* '"'
+COMMENT → '//' ~[\r\n]*          (ignorado/skip)
+WS      → [ \t\r\n]+             (ignorado/skip)
+```
+
 ---
 
-## Testes Automatizados e Validação
+## 3. Testes Automatizados e Validação
 
 O projeto possui uma bateria de nove exemplos para validar o comportamento do compilador Gabi, incluindo programas válidos e programas com erros intencionais.
 
@@ -60,15 +76,15 @@ A execução automatizada é realizada pelo arquivo `testes.ps1`, desenvolvido e
 
 | Arquivo | Objetivo | Resultado esperado |
 |---|---|---|
-| teste1.txt | Validar operações aritméticas, precedência, if/else e while | Aceitação e geração de `x = 11` no TAC |
-| teste2.txt | Validar parênteses, tipos texto e escopos | Aceitação e geração de `base = 14` no TAC |
-| teste3.txt | Validar erro léxico causado pelo caractere `@` | Diagnóstico léxico e compilação abortada |
-| teste4.txt | Validar ausência de ponto e vírgula | Diagnóstico sintático e compilação abortada |
-| teste5.txt | Validar incompatibilidade de tipos, variável não declarada e escopo | Três diagnósticos semânticos e compilação abortada |
-| teste6.txt | Validar reconhecimento de read e print | Aceitação do programa |
-| teste7.txt | Validar comentários e linhas em branco | Aceitação do programa |
-| teste8.txt | Validar operações aritméticas e comparações | Aceitação do programa |
-| teste9.txt | Validar espaços e indentação | Aceitação do programa |
+| `teste1.txt` | Aritmética, precedência, `if/else`, `while` | Aceitação e `x = 11` no TAC |
+| `teste2.txt` | Parênteses, `texto` e escopos | Aceitação e `base = 14` no TAC |
+| `teste3.txt` | Erro léxico (`@`) | Diagnóstico léxico e aborto |
+| `teste4.txt` | Ausência de `;` | Diagnóstico sintático e aborto |
+| `teste5.txt` | Tipos, escopo e não declarada | Três erros semânticos e aborto |
+| `teste6.txt` | Comandos `read` e `print` | Aceitação do programa |
+| `teste7.txt` | Comentários e linhas em branco | Aceitação do programa |
+| `teste8.txt` | Aritmética e comparações | Aceitação do programa |
+| `teste9.txt` | Espaços e indentação | Aceitação do programa |
 
 ### Requisitos para Execução
 
@@ -123,6 +139,21 @@ O script identificou a divergência e reprovou o caso. Após restaurar a configu
 ### Limitações
 
 Os testes validam o reconhecimento dos programas, diagnósticos e alguns resultados do TAC. Eles não representam cobertura exaustiva de todas as produções da gramática nem validam a execução completa dos programas C gerados.
+
+---
+
+## 4. Matriz de Responsabilidade e Contribuições Individuais
+
+### Contribuição — Gabriel Gomide Noga
+
+- Modelagem da Gramática Livre de Contexto (BNF/EBNF) e implementação da gramática unificada `Gabi.g4` no ANTLR 4.
+- Implementação da Tabela de Símbolos com controle de escopos aninhados em pilha (`Deque<Escopo>`) em `GabiCompilerVisitor.java`.
+- Desenvolvimento do analisador semântico (verificação estrita de tipos `int` e `texto`, declaração prévia obrigatória e bloqueio de redeclaração).
+- Implementação do otimizador em tempo de compilação (*Constant Folding* para redução algébrica de constantes e avisos de *Dead Code*).
+- Construção do gerador de Código Intermediário de Três Endereços (`saida.tac`) com alocação de temporários (`t1..tn`) e rótulos de desvio (`L1..Ln`).
+- Implementação do transpilador/gerador de código-alvo em C (`saida.c`) e integração automática com o compilador nativo `gcc` no `Main.java`.
+- Implementação do `GabiErrorListener` com diagnóstico visual (`^~~~`) de linha e coluna e criação dos casos de teste base (`teste1.txt` a `teste5.txt`).
+- Configuração da automação de build via Maven (`pom.xml` com `antlr4-maven-plugin` e `maven-shade-plugin`) e estruturação do repositório Git.
 
 ### Contribuição — Rayan Serhan Trindade
 

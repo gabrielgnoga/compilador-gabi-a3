@@ -1,0 +1,4 @@
+// Teste 9: Espacos e tabulacoes
+int a = 10;
+    int b = 20;
+        print a + b;

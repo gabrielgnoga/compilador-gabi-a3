@@ -1,0 +1,17 @@
+int numero = 5;
+int resultado = (numero + 3) * 2;
+
+print resultado;
+
+if (resultado > 10) {
+    texto mensagem = "Maior que dez";
+    print mensagem;
+} else {
+    print 0;
+}
+
+while (numero > 0) {
+    numero = numero - 1;
+}
+
+print numero;

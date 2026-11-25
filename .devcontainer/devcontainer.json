@@ -1,0 +1,16 @@
+{
+  "name": "Compilador Gabi - Java 21 + Maven + GCC",
+  "image": "mcr.microsoft.com/devcontainers/java:1-21-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "21",
+      "installMaven": "true"
+    }
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y gcc && mvn clean package",
+  "customizations": {
+    "jetbrains": {
+      "backend": "IntelliJ"
+    }
+  }
+}
